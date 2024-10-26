@@ -10,108 +10,193 @@ function App() {
   const [emissionsSaved, setEmissionsSaved] = useState(0);
   const [loading, setLoading] = useState(false);
   const [routeDistance, setRouteDistance] = useState(0);
+  const [routeTime, setRouteTime] = useState(0);
   const [userLocation, setUserLocation] = useState(null);
   const [center, setCenter] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [recommendation, setRecommendation] = useState('');
 
-  const apiKey = 'AIzaSyDDScCaR3ATCumlK52NNGmy07F8eQxqERI'; // Google Maps API key
-
-  // Get user location and reverse geocode to get the address
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
           const userCoords = [position.coords.latitude, position.coords.longitude];
           setUserLocation(userCoords);
           setCenter(userCoords);
-
-          // Reverse geocode to get the address from coordinates
-          const address = await getAddressFromCoordinates(position.coords.latitude, position.coords.longitude);
-          if (address) {
-            setOrigin(address); // Set the origin to the user's address
-          } else {
-            setOrigin(`${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`);
-          }
+          
+          // Reverse geocode to get address
+          reverseGeocode(userCoords[0], userCoords[1])
+            .then(address => {
+              console.log("Reverse geocoded address:", address);
+              setOrigin(address);
+            })
+            .catch(error => console.error('Error getting address:', error));
         },
         (error) => {
           console.error('Error fetching location', error);
-          setCenter([37.7749, -122.4194]); // Default center if permission denied
-        },
-        { enableHighAccuracy: true }
+          setCenter([38.8977, -77.0365]); // Default to Washington DC
+        }
       );
-    } else {
-      setCenter([37.7749, -122.4194]); // Default center if geolocation unavailable
     }
   }, []);
 
-  // Function to get address from coordinates using Google Geocoding API
-  const getAddressFromCoordinates = async (lat, lng) => {
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
+  // Function to convert coordinates to address (reverse geocoding)
+  const reverseGeocode = async (lat, lon) => {
     try {
-      const response = await fetch(geocodeUrl);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`,
+        { 
+          headers: { 
+            'Accept-Language': 'en-US,en',
+            'User-Agent': 'GreenRouteSolutions/1.0'
+          }
+        }
+      );
       const data = await response.json();
-      if (data.status === 'OK' && data.results.length > 0) {
-        return data.results[0].formatted_address; // Return the first formatted address
-      } else {
-        console.error('Error: Unable to get address from coordinates');
-        return null;
-      }
+      console.log("Reverse geocoding response:", data);
+      return data.display_name;
     } catch (error) {
-      console.error('Error fetching address:', error);
-      return null;
+      console.error('Reverse geocoding error:', error);
+      return '';
     }
   };
 
-  // Validate and fetch coordinates from Google Maps API
-  const validateAndFetchCoordinates = async (address) => {
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+  // Function to convert address to coordinates (forward geocoding)
+  const geocode = async (address) => {
     try {
-      const response = await fetch(geocodeUrl);
+      const encodedAddress = encodeURIComponent(address);
+      console.log("Geocoding address:", address);
+      
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+        { 
+          headers: { 
+            'Accept-Language': 'en-US,en',
+            'User-Agent': 'GreenRouteSolutions/1.0'
+          }
+        }
+      );
       const data = await response.json();
-      if (data.status === 'OK' && data.results.length > 0) {
-        const { lat, lng } = data.results[0].geometry.location;
-        return [lat, lng];
-      } else {
-        throw new Error('Invalid address');
+      console.log("Geocoding response:", data);
+      
+      if (data.length > 0) {
+        return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
       }
+      throw new Error('Address not found');
     } catch (error) {
-      console.error('Error fetching coordinates:', error);
-      return null;
+      console.error('Geocoding error:', error);
+      throw error;
     }
+  };
+
+  const validateAddress = (address) => {
+    if (!address) return false;
+    
+    // Check for minimum length
+    if (address.length < 5) return false;
+    
+    // Check for basic address components
+    const hasLetters = /[a-zA-Z]/.test(address);
+    const hasNumbers = /\d/.test(address);
+    const hasComma = address.includes(',');
+    
+    // For US addresses, check for state or zip code
+    const hasStateOrZip = /([A-Z]{2}|[0-9]{5})/.test(address);
+    
+    // At least need letters and one of: numbers, comma, or state/zip
+    const isValid = hasLetters && (hasNumbers || hasComma || hasStateOrZip);
+    console.log(`Address validation for "${address}":`, isValid);
+    return isValid;
   };
 
   const fetchRoute = async () => {
-    if (!origin || !destination) return;
     setLoading(true);
-
-    const originCoords = await validateAndFetchCoordinates(origin);
-    const destinationCoords = await validateAndFetchCoordinates(destination);
-
-    if (!originCoords || !destinationCoords) {
+    setErrorMessage('');
+    console.log("Fetching route for:", origin, "to", destination);
+    
+    // Validate addresses before proceeding
+    if (!validateAddress(origin)) {
+      setErrorMessage('Please enter a complete origin address (e.g., "1600 Pennsylvania Ave, Washington, DC 20500")');
       setLoading(false);
-      setErrorMessage('Unable to compute carbon emissions: invalid address.');
+      return;
+    }
+    
+    if (!validateAddress(destination)) {
+      setErrorMessage('Please enter a complete destination address (e.g., "123 Main St, San Francisco, CA 94105")');
+      setLoading(false);
       return;
     }
 
-    const distance = (Math.random() * 2 + 1).toFixed(1); // Mock distance calculation
-    setRouteDistance(distance);
-    setEmissionsSaved(distance * 252); // Mock emissions calculation
+    try {
+      // Convert addresses to coordinates
+      let originCoords, destinationCoords;
+      
+      try {
+        originCoords = await geocode(origin);
+        console.log("Origin coordinates:", originCoords);
+      } catch (error) {
+        setErrorMessage('Unable to find the origin address. Please check the spelling and try again.');
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        destinationCoords = await geocode(destination);
+        console.log("Destination coordinates:", destinationCoords);
+      } catch (error) {
+        setErrorMessage('Unable to find the destination address. Please check the spelling and try again.');
+        setLoading(false);
+        return;
+      }
 
-    setRoute([originCoords, destinationCoords]);
-    setLoading(false);
-    setErrorMessage(''); // Clear any previous errors
+      const response = await fetch('http://localhost:5050/get_route_recommendation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin_coords: originCoords,
+          destination_coords: destinationCoords,
+          vehicle: {
+            type: "gasoline_vehicle",
+            model: "toyota_corolla",
+            efficiency: 15.0,
+            fuel_type: "gasoline"
+          }
+        })
+      });
+
+      const data = await response.json();
+      console.log("Route API response:", data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch route data');
+      }
+
+      setRoute(data.route);
+      setEmissionsSaved(data.emissions);
+      setRouteDistance(data.distance_km);
+      setRouteTime(data.duration_minutes);
+      setRecommendation(data.recommendation);
+      setErrorMessage('');
+    } catch (error) {
+      console.error('Error:', error);
+      setErrorMessage(
+        error.message === 'Address not found' 
+          ? 'Unable to find one or both addresses. Please provide complete addresses including city and state.'
+          : 'Unable to compute route. Please ensure the addresses are valid and try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => {
-    const button = document.querySelector('button');
-    if (origin && destination) {
-      button.style.backgroundColor = '#00ff00';
-      button.style.cursor = 'pointer';
-    } else {
-      button.style.backgroundColor = '#333';
-      button.style.cursor = 'not-allowed';
+  const formatTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = Math.round(minutes % 60);
+    if (hours > 0) {
+      return `${hours} hr ${remainingMinutes} min`;
     }
-  }, [origin, destination]);
+    return `${remainingMinutes} min`;
+  };
 
   return (
     <div className="App">
@@ -119,7 +204,7 @@ function App() {
         <h1>GreenRoute Solutions</h1>
         <div className="subtitle">Optimizing routes for a sustainable future</div>
       </div>
-      
+
       <div className="transparent-box input-form">
         <div className="input-group">
           <label>Origin</label>
@@ -127,7 +212,7 @@ function App() {
             type="text"
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
-            placeholder="Enter origin"
+            placeholder="Enter full address (e.g., 1600 Pennsylvania Ave, Washington, DC 20500)"
             disabled={loading}
           />
         </div>
@@ -137,14 +222,14 @@ function App() {
             type="text"
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
-            placeholder="Enter destination"
+            placeholder="Enter full address (e.g., 123 Main St, San Francisco, CA 94105)"
             disabled={loading}
           />
         </div>
         <button 
           onClick={fetchRoute} 
-          disabled={loading || !origin || !destination}
-          className={`${loading ? 'loading' : ''} ${origin && destination ? 'active' : ''}`}
+          disabled={loading || !origin || !destination} 
+          className={(!loading && origin && destination) ? 'active' : ''}
         >
           {loading ? 'Optimizing...' : 'Optimize Route'}
         </button>
@@ -157,45 +242,48 @@ function App() {
           <MapContainer center={center} zoom={13} style={{ height: '500px', width: '100%' }}>
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; OpenStreetMap contributors'
+              attribution="&copy; OpenStreetMap contributors"
             />
             {userLocation && (
               <CircleMarker
-                center={userLocation} 
-                radius={8} 
-                fillColor="#00008B" 
-                color="#00008B" 
-                weight={2} 
-                opacity={0.8} 
-                fillOpacity={0.9} 
+                center={userLocation}
+                radius={8}
+                fillColor="#00008B"
+                color="#00008B"
+                weight={2}
+                opacity={0.8}
+                fillOpacity={0.9}
               />
             )}
             {route && (
               <>
                 <Marker position={route[0]} />
-                <Marker position={route[1]} />
-                <Polyline positions={route} color="#00ff00" weight={3} />
+                <Marker position={route[route.length - 1]} />
+                <Polyline positions={route} color="#00008B" weight={3} />
               </>
             )}
           </MapContainer>
         )}
       </div>
 
-      {emissionsSaved >= 0 && (
+      {emissionsSaved !== 0 && (
         <div className="stats-container">
           <div className="transparent-box emissions-counter">
             <h2>Emissions Reduced</h2>
-            <label className="emissions-label">Carbon Emissions Lowered:</label>
-            <div className="emissions-value">{emissionsSaved.toFixed(2)}</div>
-            <div className="emissions-unit">grams of CO₂</div>
+            <div className="emissions-value">{(emissionsSaved / 1000).toFixed(2)}</div>
+            <div className="emissions-unit">kg of CO₂</div>
           </div>
           <div className="transparent-box route-info">
             <h2>Route Information</h2>
-            <div className="route-details">
-              <div>Distance Optimized: {routeDistance} km</div>
-              <div>Estimated Time Saved: {(routeDistance * 3).toFixed(0)} min</div>
-            </div>
+            <div className="info-item">Distance Optimized: {routeDistance.toFixed(2)} km</div>
+            <div className="info-item">Time Optimized: {formatTime(routeTime)}</div>
           </div>
+          {recommendation && (
+            <div className="transparent-box recommendation">
+              <h2>AI Recommendation</h2>
+              <div className="recommendation-text">{recommendation}</div>
+            </div>
+          )}
         </div>
       )}
     </div>

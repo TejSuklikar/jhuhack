@@ -7,10 +7,15 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "leaflet": "^1.9.4",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "python-shell": "^5.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
     "react-scripts": "5.0.1",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
