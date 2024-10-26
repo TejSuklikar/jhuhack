@@ -12,16 +12,26 @@ function App() {
   const [routeDistance, setRouteDistance] = useState(0);
   const [userLocation, setUserLocation] = useState(null);
   const [center, setCenter] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Get user location and set it as the origin
+  const apiKey = 'AIzaSyDDScCaR3ATCumlK52NNGmy07F8eQxqERI'; // Google Maps API key
+
+  // Get user location and reverse geocode to get the address
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const userCoords = [position.coords.latitude, position.coords.longitude];
           setUserLocation(userCoords);
           setCenter(userCoords);
-          setOrigin(`${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`); // Set origin as latitude, longitude string
+
+          // Reverse geocode to get the address from coordinates
+          const address = await getAddressFromCoordinates(position.coords.latitude, position.coords.longitude);
+          if (address) {
+            setOrigin(address); // Set the origin to the user's address
+          } else {
+            setOrigin(`${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`);
+          }
         },
         (error) => {
           console.error('Error fetching location', error);
@@ -34,6 +44,64 @@ function App() {
     }
   }, []);
 
+  // Function to get address from coordinates using Google Geocoding API
+  const getAddressFromCoordinates = async (lat, lng) => {
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
+    try {
+      const response = await fetch(geocodeUrl);
+      const data = await response.json();
+      if (data.status === 'OK' && data.results.length > 0) {
+        return data.results[0].formatted_address; // Return the first formatted address
+      } else {
+        console.error('Error: Unable to get address from coordinates');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching address:', error);
+      return null;
+    }
+  };
+
+  // Validate and fetch coordinates from Google Maps API
+  const validateAndFetchCoordinates = async (address) => {
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    try {
+      const response = await fetch(geocodeUrl);
+      const data = await response.json();
+      if (data.status === 'OK' && data.results.length > 0) {
+        const { lat, lng } = data.results[0].geometry.location;
+        return [lat, lng];
+      } else {
+        throw new Error('Invalid address');
+      }
+    } catch (error) {
+      console.error('Error fetching coordinates:', error);
+      return null;
+    }
+  };
+
+  const fetchRoute = async () => {
+    if (!origin || !destination) return;
+    setLoading(true);
+
+    const originCoords = await validateAndFetchCoordinates(origin);
+    const destinationCoords = await validateAndFetchCoordinates(destination);
+
+    if (!originCoords || !destinationCoords) {
+      setLoading(false);
+      setErrorMessage('Unable to compute carbon emissions: invalid address.');
+      return;
+    }
+
+    const distance = (Math.random() * 2 + 1).toFixed(1); // Mock distance calculation
+    setRouteDistance(distance);
+    setEmissionsSaved(distance * 252); // Mock emissions calculation
+
+    setRoute([originCoords, destinationCoords]);
+    setLoading(false);
+    setErrorMessage(''); // Clear any previous errors
+  };
+
   useEffect(() => {
     const button = document.querySelector('button');
     if (origin && destination) {
@@ -44,35 +112,6 @@ function App() {
       button.style.cursor = 'not-allowed';
     }
   }, [origin, destination]);
-
-  const simulateLoading = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setLoading(false);
-  };
-
-  const fetchRoute = async () => {
-    if (!origin || !destination) return;
-    await simulateLoading();
-
-    const originCoordinates = [
-      37.7749 + Math.random() * 0.02 - 0.01,
-      -122.4194 + Math.random() * 0.02 - 0.01
-    ];
-    const destinationCoordinates = [
-      37.7849 + Math.random() * 0.02 - 0.01,
-      -122.4094 + Math.random() * 0.02 - 0.01
-    ];
-    
-    const distance = (Math.random() * 2 + 1).toFixed(1);
-    setRouteDistance(distance);
-
-    const emissionsFactor = 252;
-    const emissions = distance * emissionsFactor;
-    
-    setRoute([originCoordinates, destinationCoordinates]);
-    setEmissionsSaved(emissions);
-  };
 
   return (
     <div className="App">
@@ -110,6 +149,8 @@ function App() {
           {loading ? 'Optimizing...' : 'Optimize Route'}
         </button>
       </div>
+
+      {errorMessage && <div className="error-message">{errorMessage}</div>}
 
       <div className="map-container">
         {center && (
