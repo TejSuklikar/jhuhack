@@ -92,6 +92,7 @@ input {
   transition: all 0.3s ease;
 }
 
+/* Input Focus */
 input:focus {
   outline: none;
   border-color: #00ff00;
@@ -173,6 +174,19 @@ button.active:hover {
   line-height: 1.6;
 }
 
+/* Error Message Styling */
+.error-message {
+  color: #ff4d4d;
+  font-size: 1.1rem;
+  margin: 10px auto;
+  max-width: 900px;
+  padding: 10px;
+  background-color: rgba(255, 77, 77, 0.2);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+  border-radius: 8px;
+}
+
+/* Responsive Styling */
 @media (max-width: 768px) {
   .input-form {
     flex-direction: column;
