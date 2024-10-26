@@ -242,4 +242,3 @@ if __name__ == "__main__":
         print("Some features may not work properly.")
     
     app.run(host="0.0.0.0", port=5050)
-    

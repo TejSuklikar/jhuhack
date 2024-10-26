@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 
@@ -11,6 +11,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [routeDistance, setRouteDistance] = useState(0);
   const [routeTime, setRouteTime] = useState(0);
+  // eslint-disable-next-line
   const [userLocation, setUserLocation] = useState(null);
   const [center, setCenter] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -244,22 +245,28 @@ function App() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap contributors"
             />
-            {userLocation && (
-              <CircleMarker
-                center={userLocation}
-                radius={8}
-                fillColor="#00008B"
-                color="#00008B"
-                weight={2}
-                opacity={0.8}
-                fillOpacity={0.9}
-              />
-            )}
+            
             {route && (
               <>
-                <Marker position={route[0]} />
-                <Marker position={route[route.length - 1]} />
                 <Polyline positions={route} color="#00008B" weight={3} />
+                <CircleMarker
+                  center={route[0]}
+                  radius={8}
+                  fillColor="#008000"
+                  color="#008000"
+                  weight={2}
+                  opacity={0.8}
+                  fillOpacity={0.9}
+                />
+                <CircleMarker
+                  center={route[route.length - 1]}
+                  radius={8}
+                  fillColor="#FF0000"
+                  color="#FF0000"
+                  weight={2}
+                  opacity={0.8}
+                  fillOpacity={0.9}
+                />
               </>
             )}
           </MapContainer>
