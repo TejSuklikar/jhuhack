@@ -9,6 +9,7 @@ function App() {
   const [route, setRoute] = useState(null);
   const [routeData, setRouteData] = useState(null);
   const [loading, setLoading] = useState(false);
+  // eslint-disable-next-line
   const [userLocation, setUserLocation] = useState(null);
   const [center, setCenter] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -114,7 +115,7 @@ function App() {
           destination_coords: destinationCoords,
           vehicle: {
             type: "gasoline_vehicle",
-            model: "toyota_corolla",
+            model: "truck_1",
             efficiency: 15.0,
             fuel_type: "gasoline"
           }
@@ -160,37 +161,42 @@ function App() {
     return original - optimized;
   };
 
-  const RouteComparison = ({ comparison }) => (
-    <div className="transparent-box route-comparison">
-      <h2>Route Comparison</h2>
-      <div className="comparison-grid">
-        <div className="comparison-column">
-          <h3>Original Route</h3>
-          <div className="comparison-item">
-            Distance: {comparison.original.distance_km.toFixed(2)} km
+  const RouteComparison = ({ comparison }) => {
+    const kmToMiles = (km) => (km * 0.621371).toFixed(2);
+
+    return (
+      <div className="transparent-box route-comparison">
+        <h2>Route Comparison</h2>
+        <div className="comparison-grid">
+          <div className="comparison-column">
+            <h3>Original Route</h3>
+            <div className="comparison-item">
+            Distance: {kmToMiles(comparison.original.distance_km.toFixed(2))} miles
+            </div>
+            <div className="comparison-item">
+              Time: {formatTime(comparison.original.duration_minutes)}
+            </div>
+            <div className="comparison-item">
+              Emissions: {comparison.original.carbon_emissions_kg.toFixed(2)} kg CO₂
+            </div>
           </div>
-          <div className="comparison-item">
-            Time: {formatTime(comparison.original.duration_minutes)}
-          </div>
-          <div className="comparison-item">
-            Emissions: {comparison.original.carbon_emissions_kg.toFixed(2)} kg CO₂
-          </div>
-        </div>
-        <div className="comparison-column">
-          <h3>Optimized Route</h3>
-          <div className="comparison-item">
-            Distance: {comparison.optimized.distance_km.toFixed(2)} km
-          </div>
-          <div className="comparison-item">
-            Time: {formatTime(comparison.optimized.duration_minutes)}
-          </div>
-          <div className="comparison-item">
-            Emissions: {comparison.optimized.carbon_emissions_kg.toFixed(2)} kg CO₂
+
+          <div className="comparison-column">
+            <h3>Optimized Route</h3>
+            <div className="comparison-item">
+              Distance: {kmToMiles(comparison.optimized.distance_km.toFixed(2))} miles
+            </div>
+            <div className="comparison-item">
+              Time: {formatTime(comparison.optimized.duration_minutes)}
+            </div>
+            <div className="comparison-item">
+              Emissions: {comparison.optimized.carbon_emissions_kg.toFixed(2)} kg CO₂
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const DirectionsList = ({ directions }) => (
     <div className="transparent-box directions-list">
@@ -216,12 +222,36 @@ function App() {
     return null;
   };
 
+  const [isDarkMode, setIsDarkMode] = useState(() =>
+    localStorage.getItem('theme') === 'dark'
+  );
+
+  useEffect(() => {
+    // Toggle between dark and light classes on the body
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+      document.body.classList.remove('light-mode');
+    } else {
+      document.body.classList.add('light-mode');
+      document.body.classList.remove('dark-mode');
+    }
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    setIsDarkMode((prevMode) => !prevMode);
+  };
+
   return (
     <div className="App">
       <div className="header">
         <h1>GreenRoute Solutions</h1>
         <div className="subtitle">Optimizing routes for a sustainable future</div>
       </div>
+
+      <button onClick={toggleTheme} className="theme-toggle">
+        {isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      </button>
 
       <div className="transparent-box input-form">
         <div className="input-group">
