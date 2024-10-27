@@ -115,7 +115,7 @@ function App() {
           destination_coords: destinationCoords,
           vehicle: {
             type: "gasoline_vehicle",
-            model: "truck_1",
+            model: "toyota_camry",
             efficiency: 15.0,
             fuel_type: "gasoline"
           }
@@ -245,7 +245,7 @@ function App() {
   return (
     <div className="App">
       <div className="header">
-        <h1>GreenRoute Solutions</h1>
+        <h1>EcoNavix</h1>
         <div className="subtitle">Optimizing routes for a sustainable future</div>
       </div>
 
