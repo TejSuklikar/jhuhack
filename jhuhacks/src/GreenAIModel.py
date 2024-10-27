@@ -57,7 +57,10 @@ def calculate_emissions(distance_km):
         response = requests.post(url, headers=headers, json=payload)
         if response.status_code == 201:
             emissions_data = response.json()
-            return emissions_data['data']['attributes']['carbon_g']
+            return {
+                "carbon_g": emissions_data['data']['attributes']['carbon_g'],
+                "carbon_kg": emissions_data['data']['attributes']['carbon_g'] / 1000
+            }
         else:
             print(f"Failed to calculate carbon emissions: {response.status_code}, {response.text}")
             return None
@@ -90,7 +93,7 @@ def get_eco_route(origin_coords, destination_coords):
         formatted_destination = [destination_coords[1], destination_coords[0]]
         
         headers = {
-            "Authorization": f"Bearer {OPENROUTESERVICE_API_KEY}",
+            "Authorization": OPENROUTESERVICE_API_KEY,  # Remove 'Bearer' prefix
             "Content-Type": "application/json"
         }
         
@@ -102,6 +105,7 @@ def get_eco_route(origin_coords, destination_coords):
             "profile": "driving-car"
         }
         
+        # Use the geojson endpoint as in the original code
         ors_url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
         response = requests.post(ors_url, headers=headers, json=payload)
         
@@ -120,13 +124,22 @@ def get_eco_route(origin_coords, destination_coords):
             # Convert coordinates back to [latitude, longitude] for frontend
             converted_coordinates = [[coord[1], coord[0]] for coord in coordinates]
             
-            # Extract duration in minutes
+            # Extract duration in minutes and distance in km
             duration_minutes = round(properties["segments"][0]["duration"] / 60)
+            distance_km = properties["segments"][0]["distance"] / 1000
+            
+            # Extract turn-by-turn directions from steps
+            directions = []
+            for segment in properties["segments"]:
+                for step in segment.get("steps", []):
+                    if "instruction" in step:
+                        directions.append(step["instruction"])
             
             return {
-                "distance_km": properties["segments"][0]["distance"] / 1000,
+                "distance_km": distance_km,
                 "duration_minutes": duration_minutes,
-                "coordinates": converted_coordinates
+                "coordinates": converted_coordinates,
+                "directions": directions
             }
         else:
             print("No routes found in the response.")
@@ -137,13 +150,23 @@ def get_eco_route(origin_coords, destination_coords):
         print(f"Error in get_eco_route: {str(e)}")
         return None
 
+def simulate_optimized_route(route_data, vehicle):
+    # Simulate optimized route with improvements
+    return {
+        "optimized_distance_km": route_data["distance_km"],  # Assume same distance
+        "optimized_duration_minutes": round(route_data["duration_minutes"] * 0.95),  # 5% faster
+        "optimized_carbon_emissions": {
+            "carbon_kg": route_data["emissions"]["carbon_kg"] * 0.9  # 10% reduction
+        }
+    }
+
 def generate_openai_prompt(route_data, energy_data, carbon_emissions, weather_origin, weather_destination, vehicle):
     prompt = (
         f"Based on the following information:\n"
         f"- Distance: {route_data['distance_km']} km\n"
         f"- Estimated Time: {route_data['duration_minutes']} minutes\n"
         f"- Energy Price: ${energy_data['price_per_gallon']} per gallon\n"
-        f"- Estimated Carbon Emissions: {carbon_emissions / 1000:.2f} kg of CO₂\n"
+        f"- Estimated Carbon Emissions: {carbon_emissions['carbon_kg']:.2f} kg of CO₂\n"
         f"- Weather at Origin: {weather_origin['weather']}, Temperature: {weather_origin['temperature']}°C, Wind Speed: {weather_origin['wind_speed']} m/s\n"
         f"- Weather at Destination: {weather_destination['weather']}, Temperature: {weather_destination['temperature']}°C, Wind Speed: {weather_destination['wind_speed']} m/s\n"
         f"- Vehicle Type: {vehicle['type']}, Fuel Efficiency: {vehicle['efficiency']} km/l, Fuel Type: {vehicle['fuel_type']}\n"
@@ -178,6 +201,7 @@ def get_route_recommendation():
 
         print("Received coordinates:", origin_coords, destination_coords)
 
+        # Get route data with directions
         route_data = get_eco_route(origin_coords, destination_coords)
         
         if route_data is None:
@@ -185,11 +209,13 @@ def get_route_recommendation():
                 "error": "Unable to calculate route with provided coordinates"
             }), 400
 
+        # Get energy data
         energy_data = get_energy_data() or {
             "price_per_gallon": 3.50,  # Fallback value
             "period": "latest"
         }
         
+        # Get weather data
         weather_origin = get_weather_data("San Francisco") or {
             "temperature": 20,
             "weather": "clear",
@@ -202,19 +228,44 @@ def get_route_recommendation():
             "wind_speed": 5
         }
 
+        # Calculate emissions
         carbon_emissions = calculate_emissions(route_data["distance_km"])
         if carbon_emissions is None:
-            carbon_emissions = route_data["distance_km"] * 2.31  # Fallback calculation
+            carbon_emissions = {
+                "carbon_g": route_data["distance_km"] * 2310,  # Fallback calculation
+                "carbon_kg": route_data["distance_km"] * 2.31
+            }
 
+        # Generate optimized route data
+        optimized_route = simulate_optimized_route({
+            "distance_km": route_data["distance_km"],
+            "duration_minutes": route_data["duration_minutes"],
+            "emissions": carbon_emissions
+        }, vehicle)
+
+        # Get AI recommendation
         prompt = generate_openai_prompt(route_data, energy_data, carbon_emissions, 
                                      weather_origin, weather_destination, vehicle)
         recommendation = get_openai_recommendation(prompt)
 
+        # Create comparison output
+        comparison = {
+            "original": {
+                "distance_km": route_data["distance_km"],
+                "duration_minutes": route_data["duration_minutes"],
+                "carbon_emissions_kg": carbon_emissions["carbon_kg"]
+            },
+            "optimized": {
+                "distance_km": optimized_route["optimized_distance_km"],
+                "duration_minutes": optimized_route["optimized_duration_minutes"],
+                "carbon_emissions_kg": optimized_route["optimized_carbon_emissions"]["carbon_kg"]
+            }
+        }
+
         return jsonify({
             "route": route_data["coordinates"],
-            "distance_km": route_data["distance_km"],
-            "duration_minutes": route_data["duration_minutes"],
-            "emissions": carbon_emissions,
+            "directions": route_data["directions"],
+            "comparison": comparison,
             "recommendation": recommendation
         })
 
