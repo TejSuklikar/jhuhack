@@ -9,10 +9,27 @@ function App() {
   const [route, setRoute] = useState(null);
   const [routeData, setRouteData] = useState(null);
   const [loading, setLoading] = useState(false);
-  // eslint-disable-next-line
   const [userLocation, setUserLocation] = useState(null);
   const [center, setCenter] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [apiKeys, setApiKeys] = useState({
+    EIA_API_KEY: '',
+    CARBON_INTERFACE_API_KEY: '',
+    WEATHER_API_KEY: '',
+    OPENROUTESERVICE_API_KEY: '',
+    OPENAI_API_KEY: ''
+  });
+
+  const [showApiKeyInputs, setShowApiKeyInputs] = useState(false);
+
+  const toggleApiKeyInputs = () => {
+    setShowApiKeyInputs(!showApiKeyInputs);
+  };
+
+  const handleApiKeyChange = (e) => {
+    setApiKeys({ ...apiKeys, [e.target.name]: e.target.value });
+  };
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -113,9 +130,10 @@ function App() {
         body: JSON.stringify({
           origin_coords: originCoords,
           destination_coords: destinationCoords,
+          api_keys: apiKeys,
           vehicle: {
             type: "gasoline_vehicle",
-            model: "truck_1",
+            model: "toyota_camry",
             efficiency: 15.0,
             fuel_type: "gasoline"
           }
@@ -227,7 +245,6 @@ function App() {
   );
 
   useEffect(() => {
-    // Toggle between dark and light classes on the body
     if (isDarkMode) {
       document.body.classList.add('dark-mode');
       document.body.classList.remove('light-mode');
@@ -252,6 +269,27 @@ function App() {
       <button onClick={toggleTheme} className="theme-toggle">
         {isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       </button>
+
+      <button onClick={toggleApiKeyInputs} className="api-key-toggle">
+        {showApiKeyInputs ? 'Hide API Key Inputs' : 'Enter API Keys'}
+      </button>
+
+      {showApiKeyInputs && (
+        <div className="api-key-inputs">
+          {Object.keys(apiKeys).map((key) => (
+            <div key={key} className="input-group">
+              <label>{key.replace('_', ' ')}</label>
+              <input
+                type="password"
+                name={key}
+                value={apiKeys[key]}
+                onChange={handleApiKeyChange}
+                placeholder={`Enter ${key}`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="transparent-box input-form">
         <div className="input-group">
@@ -286,52 +324,48 @@ function App() {
       {errorMessage && <div className="error-message">{errorMessage}</div>}
 
       <div className="map-container">
-  {center && (
-    <MapContainer center={center} zoom={13} style={{ height: '500px', width: '100%' }}>
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution="&copy; OpenStreetMap contributors"
-      />
-
-      {/* Green marker for initial center (user location) */}
-      <CircleMarker
-        center={center}
-        radius={8}
-        fillColor="#008000"
-        color="#008000"
-        weight={2}
-        opacity={0.8}
-        fillOpacity={0.9}
-      />
-
-      {route && (
-        <>
-          <MapWithBounds route={route} />
-          <Polyline positions={route} color="#00008B" weight={3} />
-          <CircleMarker
-            center={route[0]}
-            radius={8}
-            fillColor="#008000"
-            color="#008000"
-            weight={2}
-            opacity={0.8}
-            fillOpacity={0.9}
-          />
-          <CircleMarker
-            center={route[route.length - 1]}
-            radius={8}
-            fillColor="#FF0000"
-            color="#FF0000"
-            weight={2}
-            opacity={0.8}
-            fillOpacity={0.9}
-          />
-        </>
-      )}
-    </MapContainer>
-  )}
-</div>
-
+        {center && (
+          <MapContainer center={center} zoom={13} style={{ height: '500px', width: '100%' }}>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+            />
+            <CircleMarker
+              center={center}
+              radius={8}
+              fillColor="#008000"
+              color="#008000"
+              weight={2}
+              opacity={0.8}
+              fillOpacity={0.9}
+            />
+            {route && (
+              <>
+                <MapWithBounds route={route} />
+                <Polyline positions={route} color="#00008B" weight={3} />
+                <CircleMarker
+                  center={route[0]}
+                  radius={8}
+                  fillColor="#008000"
+                  color="#008000"
+                  weight={2}
+                  opacity={0.8}
+                  fillOpacity={0.9}
+                />
+                <CircleMarker
+                  center={route[route.length - 1]}
+                  radius={8}
+                  fillColor="#FF0000"
+                  color="#FF0000"
+                  weight={2}
+                  opacity={0.8}
+                  fillOpacity={0.9}
+                />
+              </>
+            )}
+          </MapContainer>
+        )}
+      </div>
 
       {routeData && (
         <div className="stats-container">
@@ -348,19 +382,18 @@ function App() {
           )}
           
           {routeData.recommendation && (
-  <div className="transparent-box recommendation">
-    <h2>AI Recommendation</h2>
-    <div className="recommendation-text">
-      {routeData.recommendation.split(/\d+\.\s/).filter(Boolean).map((sentence, index) => (
-        <div key={index}>
-          {index + 1}. {sentence.trim()}
-          <br /><br />
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
+            <div className="transparent-box recommendation">
+              <h2>AI Recommendation</h2>
+              <div className="recommendation-text">
+                {routeData.recommendation.split(/\d+\.\s/).filter(Boolean).map((sentence, index) => (
+                  <div key={index}>
+                    {index + 1}. {sentence.trim()}
+                    <br /><br />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {routeData.directions && routeData.directions.length > 0 && (
             <DirectionsList directions={routeData.directions} />
