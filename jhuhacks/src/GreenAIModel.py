@@ -13,7 +13,7 @@ CORS(app)
 # Load environment variables from .env file
 load_dotenv()
 
-# API Keys
+# API Keys (initially loaded from .env but can be overridden by user input)
 EIA_API_KEY = os.getenv("EIA_API_KEY")
 CARBON_INTERFACE_API_KEY = os.getenv("CARBON_INTERFACE_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
@@ -93,7 +93,7 @@ def get_eco_route(origin_coords, destination_coords):
         formatted_destination = [destination_coords[1], destination_coords[0]]
         
         headers = {
-            "Authorization": OPENROUTESERVICE_API_KEY,  # Remove 'Bearer' prefix
+            "Authorization": OPENROUTESERVICE_API_KEY,
             "Content-Type": "application/json"
         }
         
@@ -153,10 +153,10 @@ def get_eco_route(origin_coords, destination_coords):
 def simulate_optimized_route(route_data, vehicle):
     # Simulate optimized route with improvements
     return {
-        "optimized_distance_km": route_data["distance_km"],  # Assume same distance
-        "optimized_duration_minutes": round(route_data["duration_minutes"] * 0.95),  # 5% faster
+        "optimized_distance_km": route_data["distance_km"],
+        "optimized_duration_minutes": round(route_data["duration_minutes"] * 0.95),
         "optimized_carbon_emissions": {
-            "carbon_kg": route_data["emissions"]["carbon_kg"] * 0.9  # 10% reduction
+            "carbon_kg": route_data["emissions"]["carbon_kg"] * 0.9
         }
     }
 
@@ -193,11 +193,25 @@ def get_openai_recommendation(prompt):
 
 @app.route('/get_route_recommendation', methods=['POST'])
 def get_route_recommendation():
+    global EIA_API_KEY, CARBON_INTERFACE_API_KEY, WEATHER_API_KEY, OPENROUTESERVICE_API_KEY, OPENAI_API_KEY
+
     try:
         data = request.json
         origin_coords = data['origin_coords']
         destination_coords = data['destination_coords']
         vehicle = data['vehicle']
+        
+        api_keys = data['api_keys']  # User-provided API keys
+
+        # Override environment-based keys with user-provided keys, if present
+        EIA_API_KEY = api_keys.get('EIA_API_KEY') or EIA_API_KEY
+        CARBON_INTERFACE_API_KEY = api_keys.get('CARBON_INTERFACE_API_KEY') or CARBON_INTERFACE_API_KEY
+        WEATHER_API_KEY = api_keys.get('WEATHER_API_KEY') or WEATHER_API_KEY
+        OPENROUTESERVICE_API_KEY = api_keys.get('OPENROUTESERVICE_API_KEY') or OPENROUTESERVICE_API_KEY
+        OPENAI_API_KEY = api_keys.get('OPENAI_API_KEY') or OPENAI_API_KEY
+
+        # Update OpenAI API key in OpenAI client
+        openai.api_key = OPENAI_API_KEY
 
         print("Received coordinates:", origin_coords, destination_coords)
 
@@ -211,7 +225,7 @@ def get_route_recommendation():
 
         # Get energy data
         energy_data = get_energy_data() or {
-            "price_per_gallon": 3.50,  # Fallback value
+            "price_per_gallon": 3.50,
             "period": "latest"
         }
         
@@ -232,7 +246,7 @@ def get_route_recommendation():
         carbon_emissions = calculate_emissions(route_data["distance_km"])
         if carbon_emissions is None:
             carbon_emissions = {
-                "carbon_g": route_data["distance_km"] * 2310,  # Fallback calculation
+                "carbon_g": route_data["distance_km"] * 2310,
                 "carbon_kg": route_data["distance_km"] * 2.31
             }
 
@@ -276,20 +290,4 @@ def get_route_recommendation():
         }), 500
 
 if __name__ == "__main__":
-    # Check if required API keys are present
-    missing_keys = []
-    for key_name, key_value in {
-        "EIA_API_KEY": EIA_API_KEY,
-        "CARBON_INTERFACE_API_KEY": CARBON_INTERFACE_API_KEY,
-        "WEATHER_API_KEY": WEATHER_API_KEY,
-        "OPENROUTESERVICE_API_KEY": OPENROUTESERVICE_API_KEY,
-        "OPENAI_API_KEY": OPENAI_API_KEY
-    }.items():
-        if not key_value:
-            missing_keys.append(key_name)
-    
-    if missing_keys:
-        print(f"Warning: The following API keys are missing: {', '.join(missing_keys)}")
-        print("Some features may not work properly.")
-    
     app.run(host="0.0.0.0", port=5050)
