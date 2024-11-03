@@ -66,11 +66,10 @@ h1 {
 .emissions-counter {
   text-align: center;
   align-items: center;
-  width: 300px;              /* Add a fixed width if needed */
+  width: 300px;
   margin-left: 420px;
 }
 
-/* Keep existing styles for the transparent box */
 .transparent-box {
   background: rgba(20, 20, 20, 0.7);
   background-color: var(--background-color);
@@ -83,14 +82,12 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-
-
 /* Input Form */
 .input-form {
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* Three columns: two for inputs and one for the button */
-  align-items: center; /* Align inputs and button vertically */
-  gap: 100px; /* Space between inputs and button */
+  align-items: center;
+  gap: 100px;
   max-width: 1000px;
   margin: 0 auto 30px;
   padding: 25px;
@@ -142,8 +139,65 @@ button {
   transition: background-color 0.3s, color 0.3s;
   min-width: 150px;
   height: fit-content;
-  justify-self: end; /* Align button to the right */
+  justify-self: end;
   margin-top: 20px;
+}
+
+/* Container for API Key Inputs */
+.api-key-input-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 10px; /* Adjust as needed for positioning */
+  gap: 6px; /* Reduced space between each input group */
+}
+
+/* Individual API Key Input Styling */
+.api-key-input {
+  width: 240px; /* Slightly reduced width */
+  padding: 4px; /* Compact padding */
+  margin-bottom: 3px; /* Smaller space between inputs */
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: var(--input-background-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  transition: border-color 0.3s;
+}
+
+label {
+  font-size: 16px; /* Smaller font size for labels */
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 10px; /* Reduced spacing below label */
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.api-key-input:focus {
+  outline: none;
+  border-color: #00ff00;
+  box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.1);
+}
+
+/* Positioning the API Key Button */
+button.api-key-toggle {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: var(--button-background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+button.api-key-toggle:hover {
+  background-color: var(--button-active-background);
+  color: var(--background-color);
 }
 
 button.theme-toggle {
